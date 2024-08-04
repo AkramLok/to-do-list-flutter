@@ -19,7 +19,6 @@ class Task {
       id: json['id'],
       title: json['title'],
       description: json['description'],
-      // Convert integer to boolean
       completed: json['completed'] == 1,
     );
   }
