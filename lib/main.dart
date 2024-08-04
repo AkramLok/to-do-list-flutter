@@ -8,7 +8,11 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Task List',
+      title: 'To-Do List',
+      theme: ThemeData(
+        primarySwatch: Colors.blueGrey,
+        visualDensity: VisualDensity.adaptivePlatformDensity,
+      ),
       home: TaskListScreen(),
     );
   }
@@ -46,9 +50,35 @@ class _TaskListScreenState extends State<TaskListScreen> {
     }
   }
 
-  void _deleteTask(int id) async {
-    await deleteTask(id);
-    _refreshTasks();
+  Future<void> _confirmDeleteTask(int id) async {
+    bool? confirm = await showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text("Confirm Deletion"),
+          content: Text("Are you sure you want to delete this task?"),
+          actions: <Widget>[
+            TextButton(
+              child: Text("Cancel"),
+              onPressed: () {
+                Navigator.of(context).pop(false);
+              },
+            ),
+            TextButton(
+              child: Text("Delete"),
+              onPressed: () {
+                Navigator.of(context).pop(true);
+              },
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm == true) {
+      await deleteTask(id);
+      _refreshTasks();
+    }
   }
 
   void _toggleTaskCompletion(int id) async {
@@ -60,10 +90,27 @@ class _TaskListScreenState extends State<TaskListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Task List'),
+        title: Row(
+          children: <Widget>[
+            Icon(
+              Icons.list, // Choose the icon you want here
+              color: Colors.white,
+            ),
+            SizedBox(width: 8.0), // Space between the icon and text
+            Text(
+              'To-Do List',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.lightBlue,
         actions: <Widget>[
           IconButton(
             icon: Icon(Icons.add),
+            color: Colors.white,
             onPressed: () => _navigateToTaskForm(),
           ),
         ],
@@ -76,7 +123,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
           } else if (snapshot.hasError) {
             return Center(child: Text("${snapshot.error}"));
           } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return Center(child: Text("No tasks found"));
+            return Center(child: Text("No tasks found", style: TextStyle(color: Colors.grey)));
           }
 
           List<Task>? tasks = snapshot.data;
@@ -84,23 +131,27 @@ class _TaskListScreenState extends State<TaskListScreen> {
           List<Task> incompletedTasks = tasks.where((task) => !task.completed).toList();
 
           return SingleChildScrollView(
-            child: Column(
-              children: <Widget>[
-                TaskSection(
-                  title: 'Incompleted Tasks',
-                  tasks: incompletedTasks,
-                  onEdit: _navigateToTaskForm,
-                  onDelete: _deleteTask,
-                  onToggleComplete: _toggleTaskCompletion,
-                ),
-                TaskSection(
-                  title: 'Completed Tasks',
-                  tasks: completedTasks,
-                  onEdit: _navigateToTaskForm,
-                  onDelete: _deleteTask,
-                  onToggleComplete: _toggleTaskCompletion,
-                ),
-              ],
+            child: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Column(
+                children: <Widget>[
+                  TaskSection(
+                    title: 'Incomplete Tasks',
+                    tasks: incompletedTasks,
+                    onEdit: _navigateToTaskForm,
+                    onDelete: _confirmDeleteTask,
+                    onToggleComplete: _toggleTaskCompletion,
+                  ),
+                  SizedBox(height: 16.0),
+                  TaskSection(
+                    title: 'Completed Tasks',
+                    tasks: completedTasks,
+                    onEdit: _navigateToTaskForm,
+                    onDelete: _confirmDeleteTask,
+                    onToggleComplete: _toggleTaskCompletion,
+                  ),
+                ],
+              ),
             ),
           );
         },
@@ -126,44 +177,101 @@ class TaskSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: <Widget>[
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Text(
-            title,
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              children: [
+                Icon(
+                  title == 'Incomplete Tasks'
+                      ? Icons.hourglass_empty // Icon for incomplete tasks
+                      : Icons.check_circle_outline, // Icon for completed tasks
+                  color: Colors.lightBlue, // Light blue color for icons
+                ),
+                SizedBox(width: 8.0), // Space between icon and text
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blueGrey[700],
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        ListView.builder(
-          shrinkWrap: true,
-          physics: NeverScrollableScrollPhysics(),
-          itemCount: tasks.length,
-          itemBuilder: (context, index) {
-            return ListTile(
-              title: Text(tasks[index].title),
-              subtitle: Text(tasks[index].description),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  IconButton(
-                    icon: Icon(Icons.edit),
-                    onPressed: () => onEdit(tasks[index]),
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.delete),
-                    onPressed: () => onDelete(tasks[index].id),
-                  ),
-                  IconButton(
-                    icon: Icon(tasks[index].completed ? Icons.check_box : Icons.check_box_outline_blank),
-                    onPressed: () => onToggleComplete(tasks[index].id),
-                  ),
-                ],
+          tasks.isEmpty
+              ? Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: Center(
+              child: Text(
+                'No $title found',
+                style: TextStyle(color: Colors.grey),
               ),
-            );
-          },
-        ),
-      ],
+            ),
+          )
+              : ListView.builder(
+            shrinkWrap: true,
+            physics: NeverScrollableScrollPhysics(),
+            itemCount: tasks.length,
+            itemBuilder: (context, index) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4.0),
+                child: Card(
+                  elevation: 4,
+                  margin: const EdgeInsets.symmetric(horizontal: 8.0),
+                  child: ListTile(
+                    leading: Icon(
+                      tasks[index].completed
+                          ? Icons.check_circle
+                          : Icons.radio_button_unchecked,
+                      color: tasks[index].completed ? Colors.green : Colors.grey,
+                    ),
+                    title: Text(
+                      tasks[index].title,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        decoration: tasks[index].completed
+                            ? TextDecoration.lineThrough
+                            : TextDecoration.none,
+                      ),
+                    ),
+                    subtitle: Text(tasks[index].description),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        IconButton(
+                          icon: Icon(Icons.edit, color: Colors.lightBlue),
+                          onPressed: () => onEdit(tasks[index]),
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.delete, color: Colors.red),
+                          onPressed: () => onDelete(tasks[index].id),
+                        ),
+                        IconButton(
+                          icon: Icon(
+                            tasks[index].completed
+                                ? Icons.check_box
+                                : Icons.check_box_outline_blank,
+                            color: Colors.lightBlue,
+                          ),
+                          onPressed: () => onToggleComplete(tasks[index].id),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 }
+
